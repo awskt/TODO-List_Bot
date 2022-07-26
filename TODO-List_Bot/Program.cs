@@ -16,6 +16,8 @@ builder.Services.AddScoped<HandleUpdateService>();
 //из Microsoft.AspNetCore.Mvc.NewtonsoftJson
 builder.Services.AddControllers().AddNewtonsoftJson();
 
+builder.Services.AddMemoryCache();
+
 var app = builder.Build();
 
 app.UseRouting();

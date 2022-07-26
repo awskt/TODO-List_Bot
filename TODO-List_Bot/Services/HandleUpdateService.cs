@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
@@ -10,25 +11,23 @@ namespace TODO_List_Bot.Services;
 
 public class HandleUpdateService
 {
+    private static IMemoryCache _cache;
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<HandleUpdateService> _logger;
 
-    public HandleUpdateService(ITelegramBotClient botClient, ILogger<HandleUpdateService> logger)
+    private static List<TaskObject> tasks = new();
+    
+    public HandleUpdateService(ITelegramBotClient botClient, ILogger<HandleUpdateService> logger, IMemoryCache memoryCache)
     {
         _botClient = botClient;
         _logger = logger;
+        _cache = memoryCache;
     }
 
     public async Task EchoAsync(Update update)
     {
         var handler = update.Type switch
         {
-            // UpdateType.Unknown:
-            // UpdateType.ChannelPost:
-            // UpdateType.EditedChannelPost:
-            // UpdateType.ShippingQuery:
-            // UpdateType.PreCheckoutQuery:
-            // UpdateType.Poll:
             UpdateType.Message            => BotOnMessageReceived(update.Message!),
             UpdateType.EditedMessage      => BotOnMessageReceived(update.EditedMessage!),
             UpdateType.CallbackQuery      => BotOnCallbackQueryReceived(update.CallbackQuery!),
@@ -55,113 +54,91 @@ public class HandleUpdateService
         if (message.Type != MessageType.Text)
             return;
 
-        var action = message.Text!.Split(' ')[0] switch
+        var action = message.Text! switch
         {
-            "/inline"   => SendInlineKeyboard(_botClient, message),
-            "/keyboard" => SendReplyKeyboard(_botClient, message),
-            "/remove"   => RemoveKeyboard(_botClient, message),
-            "/photo"    => SendFile(_botClient, message),
-            "/request"  => RequestContactAndLocation(_botClient, message),
-            _           => Usage(_botClient, message)
+            "Список тасков" => SendTaskList(_botClient, message),
+            "Добавить таск" => AddTask(_botClient, message),
+            _ => SendMenu(_botClient, message)
         };
         Message sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
 
-        // Send inline keyboard
-        // You can process responses in BotOnCallbackQueryReceived handler
-        static async Task<Message> SendInlineKeyboard(ITelegramBotClient bot, Message message)
+    }
+
+    private async Task<Message> SendMenu(ITelegramBotClient bot, Message message)
+    {
+        string cacheMsg;
+        if (_cache.TryGetValue("lastMessage", out cacheMsg))
         {
-            await bot.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
-
-            // Simulate longer running task
-            await Task.Delay(500);
-
-            InlineKeyboardMarkup inlineKeyboard = new(
-                new[]
-                {
-                    // first row
-                    new []
-                    {
-                        InlineKeyboardButton.WithCallbackData("1.1", "11"),
-                        InlineKeyboardButton.WithCallbackData("1.2", "12"),
-                    },
-                    // second row
-                    new []
-                    {
-                        InlineKeyboardButton.WithCallbackData("2.1", "21"),
-                        InlineKeyboardButton.WithCallbackData("2.2", "22"),
-                    },
-                });
-
+            var taskName = message.Text;
+            if (taskName != "Добавить таск" && cacheMsg == "Добавить таск")
+            {
+                tasks.Add(new TaskObject(taskName));
+                _cache.Remove("lastMessage");
+            }
+            
             return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                  text: "Choose",
-                                                  replyMarkup: inlineKeyboard);
+                text: "Таск " + taskName + " успешно добавлен");
         }
 
-        static async Task<Message> SendReplyKeyboard(ITelegramBotClient bot, Message message)
+        
+        ReplyKeyboardMarkup replyKeyboardMarkup = new(
+            new[]
+            {
+                new KeyboardButton[] { "Список тасков" },
+                new KeyboardButton[] { "Добавить таск" },
+                new KeyboardButton[] { "Настройки" }
+
+            })
         {
-            ReplyKeyboardMarkup replyKeyboardMarkup = new(
-                new[]
-                {
-                        new KeyboardButton[] { "1.1", "1.2" },
-                        new KeyboardButton[] { "2.1", "2.2" },
-                })
-                {
-                    ResizeKeyboard = true
-                };
+            ResizeKeyboard = true
+        };
 
-            return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                  text: "Choose",
-                                                  replyMarkup: replyKeyboardMarkup);
+        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+            text: "Выберите",
+            replyMarkup: replyKeyboardMarkup);
+    }
+    
+    static async Task<Message> SendTaskList(ITelegramBotClient bot, Message message)
+    {
+        if (tasks.Count > 0)
+        {
+            foreach (var task in tasks)
+            {
+                SendTaskArray(bot, message, task.Name);
+            }  
         }
-
-        static async Task<Message> RemoveKeyboard(ITelegramBotClient bot, Message message)
+        else
         {
             return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                  text: "Removing keyboard",
-                                                  replyMarkup: new ReplyKeyboardRemove());
+                text: "Список тасков пуст");
         }
+        
+        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+            text: null);
+    }
 
-        static async Task<Message> SendFile(ITelegramBotClient bot, Message message)
-        {
-            await bot.SendChatActionAsync(message.Chat.Id, ChatAction.UploadPhoto);
+    static async Task<Message> SendTaskArray(ITelegramBotClient bot, Message message, string taskName)
+    {
+        InlineKeyboardMarkup inlineKeyboard = new(
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("✅", "11"),
+                InlineKeyboardButton.WithCallbackData("🖋", "12"),
+                InlineKeyboardButton.WithCallbackData("🚫", "12")
+            });
 
-            const string filePath = @"Files/tux.png";
-            using FileStream fileStream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            var fileName = filePath.Split(Path.DirectorySeparatorChar).Last();
+        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+            text: taskName,
+            replyMarkup: inlineKeyboard);
+    } 
 
-            return await bot.SendPhotoAsync(chatId: message.Chat.Id,
-                                            photo: new InputOnlineFile(fileStream, fileName),
-                                            caption: "Nice Picture");
-        }
+    static async Task<Message> AddTask(ITelegramBotClient bot, Message message)
+    {
+        _cache.Set("lastMessage", "Добавить таск");
 
-        static async Task<Message> RequestContactAndLocation(ITelegramBotClient bot, Message message)
-        {
-            ReplyKeyboardMarkup RequestReplyKeyboard = new(
-                new[]
-                {
-                    KeyboardButton.WithRequestLocation("Location"),
-                    KeyboardButton.WithRequestContact("Contact"),
-                });
-
-            return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                  text: "Who or Where are you?",
-                                                  replyMarkup: RequestReplyKeyboard);
-        }
-
-        static async Task<Message> Usage(ITelegramBotClient bot, Message message)
-        {
-            const string usage = "Usage:\n" +
-                                 "/inline   - send inline keyboard\n" +
-                                 "/keyboard - send custom keyboard\n" +
-                                 "/remove   - remove custom keyboard\n" +
-                                 "/photo    - send a photo\n" +
-                                 "/request  - request location or contact";
-
-            return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                  text: usage,
-                                                  replyMarkup: new ReplyKeyboardRemove());
-        }
+        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+            text: "Введите название таска:");
     }
 
     // Process Inline Keyboard callback data
