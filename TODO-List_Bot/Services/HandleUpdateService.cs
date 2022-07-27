@@ -4,7 +4,6 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InlineQueryResults;
-using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace TODO_List_Bot.Services;
@@ -16,8 +15,9 @@ public class HandleUpdateService
     private readonly ILogger<HandleUpdateService> _logger;
 
     private static List<TaskObject> tasks = new();
-    
-    public HandleUpdateService(ITelegramBotClient botClient, ILogger<HandleUpdateService> logger, IMemoryCache memoryCache)
+
+    public HandleUpdateService(ITelegramBotClient botClient, ILogger<HandleUpdateService> logger,
+        IMemoryCache memoryCache)
     {
         _botClient = botClient;
         _logger = logger;
@@ -28,21 +28,21 @@ public class HandleUpdateService
     {
         var handler = update.Type switch
         {
-            UpdateType.Message            => BotOnMessageReceived(update.Message!),
-            UpdateType.EditedMessage      => BotOnMessageReceived(update.EditedMessage!),
-            UpdateType.CallbackQuery      => BotOnCallbackQueryReceived(update.CallbackQuery!),
-            UpdateType.InlineQuery        => BotOnInlineQueryReceived(update.InlineQuery!),
+            UpdateType.Message => BotOnMessageReceived(update.Message!),
+            UpdateType.EditedMessage => BotOnMessageReceived(update.EditedMessage!),
+            UpdateType.CallbackQuery => BotOnCallbackQueryReceived(update.CallbackQuery!, update.Message),
+            UpdateType.InlineQuery => BotOnInlineQueryReceived(update.InlineQuery!),
             UpdateType.ChosenInlineResult => BotOnChosenInlineResultReceived(update.ChosenInlineResult!),
-            _                             => UnknownUpdateHandlerAsync(update)
+            _ => UnknownUpdateHandlerAsync(update)
         };
 
         try
         {
             await handler;
         }
-        #pragma warning disable CA1031
+#pragma warning disable CA1031
         catch (Exception exception)
-        #pragma warning restore CA1031
+#pragma warning restore CA1031
         {
             await HandleErrorAsync(exception);
         }
@@ -63,94 +63,127 @@ public class HandleUpdateService
         Message sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
 
-    }
-
-    private async Task<Message> SendMenu(ITelegramBotClient bot, Message message)
-    {
-        string cacheMsg;
-        if (_cache.TryGetValue("lastMessage", out cacheMsg))
+        async Task<Message> SendMenu(ITelegramBotClient bot, Message message)
         {
-            var taskName = message.Text;
-            if (taskName != "Добавить таск" && cacheMsg == "Добавить таск")
+            string cacheMsg;
+            if (_cache.TryGetValue("lastMessage", out cacheMsg))
             {
-                tasks.Add(new TaskObject(taskName));
-                _cache.Remove("lastMessage");
-            }
+                var taskName = message.Text;
+                if (taskName != "Добавить таск" && cacheMsg == "Добавить таск")
+                {
+                    tasks.Add(new TaskObject(taskName));
+                    _cache.Remove("lastMessage");
+                    return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                        text: "Таск " + taskName + " успешно добавлен");
+                }
+
+                if ((tasks.FirstOrDefault(x => x.Name == cacheMsg) != null) && message.Text == "Да")
+                {
+                    Console.WriteLine("sdfsdf");
+                    string editingTaskName = tasks.FirstOrDefault(x => x.Name == cacheMsg).Name;
+                    InlineKeyboardMarkup inlineKeyboard = new(
+                        new[]
+                        {
+                            new[]
+                            {
+                                InlineKeyboardButton.WithCallbackData("Изменить название", "1")
+                            },
+                            new[]
+                            {
+                                InlineKeyboardButton.WithCallbackData("Изменить описание", "2")
+                            },
+                            new[]
+                            {
+                                InlineKeyboardButton.WithCallbackData("Изменить время", "3")
+                            }
+                        });
             
-            return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                text: "Таск " + taskName + " успешно добавлен");
-        }
+                    await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                        text: editingTaskName,
+                        replyMarkup: inlineKeyboard);
+                }
+            }
 
-        
-        ReplyKeyboardMarkup replyKeyboardMarkup = new(
-            new[]
+            ReplyKeyboardMarkup replyKeyboardMarkup = new(
+                new[]
+                {
+                    new KeyboardButton[] { "Список тасков" },
+                    new KeyboardButton[] { "Добавить таск" },
+                    new KeyboardButton[] { "Настройки" }
+                })
             {
-                new KeyboardButton[] { "Список тасков" },
-                new KeyboardButton[] { "Добавить таск" },
-                new KeyboardButton[] { "Настройки" }
+                ResizeKeyboard = true
+            };
 
-            })
-        {
-            ResizeKeyboard = true
-        };
-
-        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-            text: "Выберите",
-            replyMarkup: replyKeyboardMarkup);
+            return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                text: "Выберите",
+                replyMarkup: replyKeyboardMarkup);
+        }
     }
     
     static async Task<Message> SendTaskList(ITelegramBotClient bot, Message message)
-    {
-        if (tasks.Count > 0)
         {
-            foreach (var task in tasks)
+            if (tasks.Count > 0)
             {
-                SendTaskArray(bot, message, task.Name);
-            }  
-        }
-        else
-        {
+                foreach (var task in tasks)
+                {
+                    SendTaskArray(bot, message, task.Name, task);
+                }
+            }
+            else
+            {
+                return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                    text: "Список тасков пуст");
+            }
+
             return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                text: "Список тасков пуст");
+                text: "");
         }
-        
-        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-            text: null);
-    }
 
-    static async Task<Message> SendTaskArray(ITelegramBotClient bot, Message message, string taskName)
-    {
-        InlineKeyboardMarkup inlineKeyboard = new(
-            new[]
-            {
-                InlineKeyboardButton.WithCallbackData("✅", "11"),
-                InlineKeyboardButton.WithCallbackData("🖋", "12"),
-                InlineKeyboardButton.WithCallbackData("🚫", "12")
-            });
+        static async Task SendTaskArray(ITelegramBotClient bot, Message message, string taskName, TaskObject task)
+        {
+            InlineKeyboardMarkup inlineKeyboard = new(
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("✅", "Таск " + taskName + " выполнен"),
+                    InlineKeyboardButton.WithCallbackData("🖋", "Вы хотите изменить таск " + taskName + "? (Да/Нет)"),
+                    InlineKeyboardButton.WithCallbackData("🚫", "Таск " + taskName + " удален")
+                });
 
-        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-            text: taskName,
-            replyMarkup: inlineKeyboard);
-    } 
+            await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                text: taskName,
+                replyMarkup: inlineKeyboard);
+        }
 
-    static async Task<Message> AddTask(ITelegramBotClient bot, Message message)
-    {
-        _cache.Set("lastMessage", "Добавить таск");
+        static async Task<Message> AddTask(ITelegramBotClient bot, Message message)
+        {
+            _cache.Set("lastMessage", "Добавить таск");
 
-        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-            text: "Введите название таска:");
-    }
+            return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                text: "Введите название таска:");
+        }
 
+    
     // Process Inline Keyboard callback data
-    private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery)
+    private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery, Message message)
     {
+        tasks.Remove(tasks.FirstOrDefault(x => x.Name == callbackQuery.Data[5..9]));
+        tasks.Remove(tasks.FirstOrDefault(x => x.Name == callbackQuery.Data[5..7]));
+
+        if (tasks.FirstOrDefault(x => x.Name == callbackQuery.Data[24..^10]) != null)
+        {
+            string taskName = tasks.FirstOrDefault(x => x.Name == callbackQuery.Data[24..^10]).Name;
+            Console.WriteLine(taskName);
+            _cache.Set("lastMessage", taskName);
+        }
+
         await _botClient.AnswerCallbackQueryAsync(
             callbackQueryId: callbackQuery.Id,
-            text: $"Received {callbackQuery.Data}");
+            text: $"{callbackQuery.Data}");
 
         await _botClient.SendTextMessageAsync(
             chatId: callbackQuery.Message!.Chat.Id,
-            text: $"Received {callbackQuery.Data}");
+            text: $"{callbackQuery.Data}");
     }
 
     #region Inline Mode
@@ -159,7 +192,8 @@ public class HandleUpdateService
     {
         _logger.LogInformation("Received inline query from: {InlineQueryFromId}", inlineQuery.From.Id);
 
-        InlineQueryResult[] results = {
+        InlineQueryResult[] results =
+        {
             // displayed result
             new InlineQueryResultArticle(
                 id: "3",
@@ -171,9 +205,9 @@ public class HandleUpdateService
         };
 
         await _botClient.AnswerInlineQueryAsync(inlineQueryId: inlineQuery.Id,
-                                                results: results,
-                                                isPersonal: true,
-                                                cacheTime: 0);
+            results: results,
+            isPersonal: true,
+            cacheTime: 0);
     }
 
     private Task BotOnChosenInlineResultReceived(ChosenInlineResult chosenInlineResult)
@@ -194,7 +228,8 @@ public class HandleUpdateService
     {
         var ErrorMessage = exception switch
         {
-            ApiRequestException apiRequestException => $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
+            ApiRequestException apiRequestException =>
+                $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
             _ => exception.ToString()
         };
 
