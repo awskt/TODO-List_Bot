@@ -72,14 +72,29 @@ public class HandleUpdateService
                 if (taskName != "Добавить таск" && cacheMsg == "Добавить таск")
                 {
                     tasks.Add(new TaskObject(taskName));
+                    
                     _cache.Remove("lastMessage");
-                    return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                        text: "Таск " + taskName + " успешно добавлен");
+                    _cache.Set("lastMessage", "Введите описание таска");
+                        
+                    await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                        text: "Название таска: " + taskName);
+                    await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                        text: "Введите описание таска");
+                }
+
+                var taskDescription = message.Text;
+                if (taskDescription != "Введите описание таска" && cacheMsg == "Введите описание таска")
+                {
+                    _cache.Remove("lastMessage");
+                    _cache.Set("lastMessage", "Описание таска: " + taskDescription);
+
+                    await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                        text: "Описание таска: " + taskDescription);
                 }
 
                 if ((tasks.FirstOrDefault(x => x.Name == cacheMsg) != null) && message.Text == "Да")
                 {
-                    Console.WriteLine("sdfsdf");
+                    _cache.Remove("lastMessage");
                     string editingTaskName = tasks.FirstOrDefault(x => x.Name == cacheMsg).Name;
                     InlineKeyboardMarkup inlineKeyboard = new(
                         new[]
@@ -116,7 +131,7 @@ public class HandleUpdateService
             };
 
             return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-                text: "Выберите",
+                text: "",
                 replyMarkup: replyKeyboardMarkup);
         }
     }
