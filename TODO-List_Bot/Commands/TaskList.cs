@@ -12,11 +12,8 @@ public static class TaskList
         var tasks = HandleUpdateService.tasks;
         Console.WriteLine(tasks.Count);
 
-        if (tasks.Count > 0)
-        {
-            foreach (var task in tasks)
-            {
-                Console.WriteLine("sdfsfsdfsdf");
+        if (tasks.Any( )) {
+            foreach (var task in tasks) {
                 SendTask(bot, message, task.Name);
             }
         }
@@ -27,20 +24,20 @@ public static class TaskList
         }
         
         return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-            text: "");
+            text: "Конец списка");
     }
     
-    private static void SendTask(ITelegramBotClient bot, Message message, string taskName)
+    private async static void SendTask(ITelegramBotClient bot, Message message, string taskName)
     {
         InlineKeyboardMarkup inlineKeyboard = new(
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("✅", "Таск " + taskName + " выполнен"),
-                InlineKeyboardButton.WithCallbackData("🖋", "Вы хотите изменить таск " + taskName + "? (Да/Нет)"),
-                InlineKeyboardButton.WithCallbackData("🚫", "Таск " + taskName + " удален")
+                InlineKeyboardButton.WithCallbackData("✅", "finish" + taskName),
+                InlineKeyboardButton.WithCallbackData("🖋", "edit" + taskName),
+                InlineKeyboardButton.WithCallbackData("🚫", "delete" + taskName)
             });
     
-        bot.SendTextMessageAsync(chatId: message.Chat.Id,
+        var msg = await bot.SendTextMessageAsync(chatId: message.Chat.Id,
             text: taskName,
             replyMarkup: inlineKeyboard);
     }

@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -6,9 +7,7 @@ namespace TODO_List_Bot.Commands;
 
 public class AnyMessage
 {
-
-    private static string taskName;
-    public static async Task<Message> OnMessageReceived(ITelegramBotClient bot, Message message)
+    public static Task<Message> OnMessageReceived(ITelegramBotClient bot, Message message)
     {
         ReplyKeyboardMarkup replyKeyboardMarkup = new(
             new[]
@@ -21,7 +20,7 @@ public class AnyMessage
             ResizeKeyboard = true
         };
 
-        return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+        return bot.SendTextMessageAsync(chatId: message.Chat.Id,
             text: "Выберите",
             replyMarkup: replyKeyboardMarkup);
     }
