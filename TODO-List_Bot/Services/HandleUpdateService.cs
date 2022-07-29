@@ -67,24 +67,12 @@ public class HandleUpdateService
     // Process Inline Keyboard callback data
     private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery, Message message)
     {
-        if (tasks.FirstOrDefault(x => x.Name == callbackQuery.Data.Substring(6)) != null)
-        {
-            var taskName = tasks.FirstOrDefault(x => x.Name == callbackQuery.Data.Substring(6)).Name;
-            var taskAction = callbackQuery.Data[0..6];
 
-            if (taskAction == "finish")
-            {
-                var finishTask = new FinishTask();
-            }
-            else if (taskAction == "edit")
-            {
-                new EditTask();
-            }
-            else if (taskAction == "delete")
-            {
-                new DeleteTask();
-            }
-        }
+       ICommand? task = tasks.FirstOrDefault(x => x.Name == callbackQuery.Data![6..])!.Do();
+
+
+        // нихуя не понял что дальше нужно сделать
+        task.SendMessage(_botClient, new Message());
     }
 
     #region Inline Mode
