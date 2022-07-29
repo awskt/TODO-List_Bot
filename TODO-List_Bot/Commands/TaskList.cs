@@ -5,50 +5,39 @@ using TODO_List_Bot.Services;
 
 namespace TODO_List_Bot.Commands;
 
-public static class TaskList
-{
-    public static async Task<Message> SendTaskList(ITelegramBotClient bot, Message message)
-    {
+public static class TaskList {
+    public static async Task<Message> SendTaskList(ITelegramBotClient bot, Message message) {
         var tasks = HandleUpdateService.tasks;
         Console.WriteLine(tasks.Count);
 
-        if (tasks.Count > 0)
-        {
-            foreach (var task in tasks)
-            {
-                Console.WriteLine("sdfsfsdfsdf");
+        if (tasks.Any( )) {
+            foreach (var task in tasks) {
                 SendTask(bot, message, task.Name);
             }
-        }
-        else
-        {
-            return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+        } else {
+            await bot.SendTextMessageAsync(chatId: message.Chat.Id,
                 text: "Список тасков пуст");
         }
-        
         return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
             text: "");
     }
-    
-    private static void SendTask(ITelegramBotClient bot, Message message, string taskName)
-    {
+
+    private static async Task SendTask(ITelegramBotClient bot, Message message, string taskName) {
         InlineKeyboardMarkup inlineKeyboard = new(
-            new[]
+            new[ ]
             {
                 InlineKeyboardButton.WithCallbackData("✅", "Таск " + taskName + " выполнен"),
-                InlineKeyboardButton.WithCallbackData("🖋", "Вы хотите изменить таск " + taskName + "? (Да/Нет)"),
+                InlineKeyboardButton.WithCallbackData("🖋", "delete " + taskName),
                 InlineKeyboardButton.WithCallbackData("🚫", "Таск " + taskName + " удален")
             });
-    
-        bot.SendTextMessageAsync(chatId: message.Chat.Id,
+        var msg = await bot.SendTextMessageAsync(chatId: message.Chat.Id,
             text: taskName,
             replyMarkup: inlineKeyboard);
     }
-    
-    public static async Task EditTask(ITelegramBotClient bot, Message message, TaskObject task)
-    {
+
+    public static Task EditTask(ITelegramBotClient bot, Message message, TaskObject task) {
         InlineKeyboardMarkup inlineKeyboardMarkup = new(
-            new []
+            new[ ]
             {
                 new []
                 {
@@ -63,8 +52,8 @@ public static class TaskList
                     InlineKeyboardButton.WithCallbackData("Изменить время", "3")
                 }
             });
-    
-        await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+
+        return bot.SendTextMessageAsync(chatId: message.Chat.Id,
             text: task.Name,
             replyMarkup: inlineKeyboardMarkup);
     }

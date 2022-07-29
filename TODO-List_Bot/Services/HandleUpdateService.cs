@@ -15,7 +15,7 @@ public class HandleUpdateService
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<HandleUpdateService> _logger;
 
-    public static List<TaskObject> tasks = new(){new TaskObject("sdfsd"), new TaskObject("sdfsdf"), new TaskObject("sdfsdf")};
+    public static List<TaskObject> tasks = new(){new TaskObject("sdfsd1"), new TaskObject("sdfsdf2"), new TaskObject("sdfsdf3")};
 
     public HandleUpdateService(ITelegramBotClient botClient, ILogger<HandleUpdateService> logger,
         IMemoryCache memoryCache)
