@@ -12,7 +12,7 @@ public static class TaskList {
 
         if (tasks.Any( )) {
             foreach (var task in tasks) {
-                SendTask(bot, message, task.Name);
+                await SendTask(bot, message, task.Name).ConfigureAwait(false);
             }
         } else {
             await bot.SendTextMessageAsync(chatId: message.Chat.Id,
@@ -22,7 +22,7 @@ public static class TaskList {
             text: "");
     }
 
-    private static async Task SendTask(ITelegramBotClient bot, Message message, string taskName) {
+    private static Task SendTask(ITelegramBotClient bot, Message message, string taskName) {
         InlineKeyboardMarkup inlineKeyboard = new(
             new[ ]
             {
@@ -30,7 +30,7 @@ public static class TaskList {
                 InlineKeyboardButton.WithCallbackData("🖋", "delete " + taskName),
                 InlineKeyboardButton.WithCallbackData("🚫", "Таск " + taskName + " удален")
             });
-        var msg = await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+        return bot.SendTextMessageAsync(chatId: message.Chat.Id,
             text: taskName,
             replyMarkup: inlineKeyboard);
     }

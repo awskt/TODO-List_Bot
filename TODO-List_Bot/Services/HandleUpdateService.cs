@@ -78,7 +78,7 @@ public class HandleUpdateService
 
     #region Inline Mode
 
-    private async Task BotOnInlineQueryReceived(InlineQuery inlineQuery)
+    private Task BotOnInlineQueryReceived(InlineQuery inlineQuery)
     {
         _logger.LogInformation("Received inline query from: {InlineQueryFromId}", inlineQuery.From.Id);
 
@@ -94,7 +94,7 @@ public class HandleUpdateService
             )
         };
 
-        await _botClient.AnswerInlineQueryAsync(inlineQueryId: inlineQuery.Id,
+        return _botClient.AnswerInlineQueryAsync(inlineQueryId: inlineQuery.Id,
             results: results,
             isPersonal: true,
             cacheTime: 0);
