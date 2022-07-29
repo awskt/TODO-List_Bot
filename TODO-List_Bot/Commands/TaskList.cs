@@ -12,25 +12,27 @@ public static class TaskList {
 
         if (tasks.Any( )) {
             foreach (var task in tasks) {
-                await SendTask(bot, message, task.Name).ConfigureAwait(false);
+                SendTask(bot, message, task.Name);
             }
         } else {
             await bot.SendTextMessageAsync(chatId: message.Chat.Id,
                 text: "Список тасков пуст");
         }
         return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
-            text: "");
+            text: "Конец списка");
     }
-
-    private static Task SendTask(ITelegramBotClient bot, Message message, string taskName) {
+    
+    private async static void SendTask(ITelegramBotClient bot, Message message, string taskName)
+    {
         InlineKeyboardMarkup inlineKeyboard = new(
             new[ ]
             {
-                InlineKeyboardButton.WithCallbackData("✅", "Таск " + taskName + " выполнен"),
-                InlineKeyboardButton.WithCallbackData("🖋", "delete " + taskName),
-                InlineKeyboardButton.WithCallbackData("🚫", "Таск " + taskName + " удален")
+                InlineKeyboardButton.WithCallbackData("✅", "finish" + taskName),
+                InlineKeyboardButton.WithCallbackData("🖋", "edit" + taskName),
+                InlineKeyboardButton.WithCallbackData("🚫", "delete" + taskName)
             });
-        return bot.SendTextMessageAsync(chatId: message.Chat.Id,
+    
+        var msg = await bot.SendTextMessageAsync(chatId: message.Chat.Id,
             text: taskName,
             replyMarkup: inlineKeyboard);
     }

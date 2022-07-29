@@ -4,8 +4,8 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InlineQueryResults;
-using Telegram.Bot.Types.ReplyMarkups;
 using TODO_List_Bot.Commands;
+using TODO_List_Bot.Interfaces;
 
 namespace TODO_List_Bot.Services;
 
@@ -63,17 +63,28 @@ public class HandleUpdateService
         Message sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
     }
-
+    
     // Process Inline Keyboard callback data
     private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery, Message message)
     {
-        await _botClient.AnswerCallbackQueryAsync(
-            callbackQueryId: callbackQuery.Id,
-            text: $"{callbackQuery.Data}");
+        if (tasks.FirstOrDefault(x => x.Name == callbackQuery.Data.Substring(6)) != null)
+        {
+            var taskName = tasks.FirstOrDefault(x => x.Name == callbackQuery.Data.Substring(6)).Name;
+            var taskAction = callbackQuery.Data[0..6];
 
-        await _botClient.SendTextMessageAsync(
-            chatId: callbackQuery.Message!.Chat.Id,
-            text: $"{callbackQuery.Data}");
+            if (taskAction == "finish")
+            {
+                var finishTask = new FinishTask();
+            }
+            else if (taskAction == "edit")
+            {
+                new EditTask();
+            }
+            else if (taskAction == "delete")
+            {
+                new DeleteTask();
+            }
+        }
     }
 
     #region Inline Mode
